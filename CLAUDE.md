@@ -78,6 +78,27 @@ Loaded in order (later overrides earlier), deep-merged via `serde_yaml::Value`:
 - Status detection is priority-ordered: SessionLimit > ApiError > tool-based > fallback to TaskComplete.
 - Urgent priority bypasses both cooldown and idle check.
 
+## Local Deploy (Dev)
+
+After code changes, sync to installed plugin cache:
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+cd crates && cargo build --release && cd ..
+bash swift-notifier/build.sh
+
+CACHE=~/.claude/plugins/cache/claude-notification/claude-notification/0.1.0
+cp crates/target/release/claude-notify "$CACHE/bin/claude-notify-macos-aarch64"
+rm -rf "$CACHE/swift-notifier/ClaudeNotifier.app"
+cp -R swift-notifier/build/ClaudeNotifier.app "$CACHE/swift-notifier/"
+```
+
+## Git Remotes
+
+Two remotes — push to both:
+```bash
+git push github master && git push gitlab master
+```
+
 ## Development Gotchas
 
 - Plugin cache (`~/.claude/plugins/cache/`) is a snapshot from install time. After local changes: rebuild binary, copy to cache, copy Swift app to cache. Changes to hooks.json/config also need manual sync.
