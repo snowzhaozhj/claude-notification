@@ -10,10 +10,10 @@ use crate::types::Status;
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    pub msg_type:     String,
+    pub msg_type: String,
     pub text_content: String,
-    pub tool_name:    Option<String>,
-    pub tool_input:   Value,
+    pub tool_name: Option<String>,
+    pub tool_input: Value,
     pub is_api_error: bool,
     pub error_status: Option<u16>,
 }
@@ -40,7 +40,8 @@ pub fn parse_transcript_str(content: &str) -> Vec<Message> {
 pub fn parse_message_line(line: &str) -> Option<Message> {
     let v: Value = serde_json::from_str(line.trim()).ok()?;
 
-    let msg_type = v.get("type")
+    let msg_type = v
+        .get("type")
         .and_then(|t| t.as_str())
         .unwrap_or("")
         .to_string();
@@ -52,11 +53,13 @@ pub fn parse_message_line(line: &str) -> Option<Message> {
     let (tool_name, tool_input) = extract_tool_info(&v);
 
     // API error fields ————————————————————————————————————————————————————
-    let is_api_error = v.get("isApiErrorMessage")
+    let is_api_error = v
+        .get("isApiErrorMessage")
         .and_then(|b| b.as_bool())
         .unwrap_or(false);
 
-    let error_status = v.get("error")
+    let error_status = v
+        .get("error")
         .and_then(|e| e.get("status"))
         .and_then(|s| s.as_u64())
         .map(|s| s as u16);
@@ -75,7 +78,8 @@ pub fn parse_message_line(line: &str) -> Option<Message> {
 /// or fall back to top-level "content" string.
 fn extract_text_content(v: &Value) -> String {
     // Try message.content array first
-    if let Some(content_arr) = v.get("message")
+    if let Some(content_arr) = v
+        .get("message")
         .and_then(|m| m.get("content"))
         .and_then(|c| c.as_array())
     {
@@ -112,13 +116,15 @@ fn extract_text_content(v: &Value) -> String {
 /// Extract tool_name and tool_input from top-level fields or message.content array.
 fn extract_tool_info(v: &Value) -> (Option<String>, Value) {
     // Check message.content array for tool_use items
-    if let Some(content_arr) = v.get("message")
+    if let Some(content_arr) = v
+        .get("message")
         .and_then(|m| m.get("content"))
         .and_then(|c| c.as_array())
     {
         for item in content_arr {
             if item.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
-                let name = item.get("name")
+                let name = item
+                    .get("name")
                     .and_then(|n| n.as_str())
                     .map(|s| s.to_string());
                 let input = item.get("input").cloned().unwrap_or(Value::Null);
@@ -130,7 +136,8 @@ fn extract_tool_info(v: &Value) -> (Option<String>, Value) {
     }
 
     // Fall back to top-level tool_name / tool_input
-    let name = v.get("tool_name")
+    let name = v
+        .get("tool_name")
         .and_then(|n| n.as_str())
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
@@ -144,7 +151,7 @@ fn extract_tool_info(v: &Value) -> (Option<String>, Value) {
 /// Return the last N messages (up to 15).
 pub fn recent_messages(messages: &[Message]) -> &[Message] {
     let n = messages.len();
-    let start = if n > 15 { n - 15 } else { 0 };
+    let start = n.saturating_sub(15);
     &messages[start..]
 }
 
@@ -161,9 +168,17 @@ pub fn detect_status(messages: &[Message], hook_context: &HookInput) -> Status {
     let recent = recent_messages(messages);
 
     // 1. Session limit —————————————————————————————————————————————————————
-    let last3_start = if recent.len() > 3 { recent.len() - 3 } else { 0 };
+    let last3_start = if recent.len() > 3 {
+        recent.len() - 3
+    } else {
+        0
+    };
     let last3 = &recent[last3_start..];
-    if last3.iter().any(|m| m.text_content.to_lowercase().contains("session limit reached")) {
+    if last3.iter().any(|m| {
+        m.text_content
+            .to_lowercase()
+            .contains("session limit reached")
+    }) {
         return Status::SessionLimit;
     }
 
@@ -195,7 +210,10 @@ pub fn detect_status(messages: &[Message], hook_context: &HookInput) -> Status {
     // 5. Task complete (write/edit/bash tools in recent messages) —————————
     const WRITE_TOOLS: &[&str] = &["Write", "Edit", "Bash", "NotebookEdit"];
     let has_write_tool = recent.iter().any(|m| {
-        m.tool_name.as_deref().map(|n| WRITE_TOOLS.contains(&n)).unwrap_or(false)
+        m.tool_name
+            .as_deref()
+            .map(|n| WRITE_TOOLS.contains(&n))
+            .unwrap_or(false)
     });
     if has_write_tool {
         return Status::TaskComplete;
@@ -204,12 +222,11 @@ pub fn detect_status(messages: &[Message], hook_context: &HookInput) -> Status {
     // 6. Review complete (only read tools + long text) ————————————————————
     const READ_TOOLS: &[&str] = &["Read", "Grep", "Glob"];
     let has_any_tool = recent.iter().any(|m| m.tool_name.is_some());
-    let only_read_tools = has_any_tool && recent.iter().all(|m| {
-        match &m.tool_name {
+    let only_read_tools = has_any_tool
+        && recent.iter().all(|m| match &m.tool_name {
             None => true,
             Some(n) => READ_TOOLS.contains(&n.as_str()),
-        }
-    });
+        });
     let long_text = recent.iter().any(|m| m.text_content.len() > 200);
     if only_read_tools && long_text {
         return Status::ReviewComplete;
@@ -227,13 +244,13 @@ mod tests {
 
     fn make_hook_input(tool_name: &str) -> HookInput {
         HookInput {
-            session_id:           "test-session".to_string(),
-            transcript_path:      "/tmp/transcript.jsonl".to_string(),
-            tool_name:            tool_name.to_string(),
-            tool_input:           Value::Null,
-            tool_result:          Value::Null,
-            is_team_lead:         false,
-            team_name:            String::new(),
+            session_id: "test-session".to_string(),
+            transcript_path: "/tmp/transcript.jsonl".to_string(),
+            tool_name: tool_name.to_string(),
+            tool_input: Value::Null,
+            tool_result: Value::Null,
+            is_team_lead: false,
+            team_name: String::new(),
             is_api_error_message: false,
         }
     }
@@ -246,10 +263,10 @@ mod tests {
         error_status: Option<u16>,
     ) -> Message {
         Message {
-            msg_type:     msg_type.to_string(),
+            msg_type: msg_type.to_string(),
             text_content: text_content.to_string(),
-            tool_name:    tool_name.map(|s| s.to_string()),
-            tool_input:   Value::Null,
+            tool_name: tool_name.map(|s| s.to_string()),
+            tool_input: Value::Null,
             is_api_error,
             error_status,
         }
@@ -257,54 +274,78 @@ mod tests {
 
     #[test]
     fn detect_session_limit() {
-        let messages = vec![
-            make_message("assistant", "Session limit reached, please start a new session.", None, false, None),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "Session limit reached, please start a new session.",
+            None,
+            false,
+            None,
+        )];
         let hook = make_hook_input("");
         assert_eq!(detect_status(&messages, &hook), Status::SessionLimit);
     }
 
     #[test]
     fn detect_api_error() {
-        let messages = vec![
-            make_message("assistant", "API call failed.", None, true, Some(500)),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "API call failed.",
+            None,
+            true,
+            Some(500),
+        )];
         let hook = make_hook_input("");
         assert_eq!(detect_status(&messages, &hook), Status::ApiError);
     }
 
     #[test]
     fn detect_api_overloaded() {
-        let messages = vec![
-            make_message("assistant", "Too many requests.", None, true, Some(429)),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "Too many requests.",
+            None,
+            true,
+            Some(429),
+        )];
         let hook = make_hook_input("");
         assert_eq!(detect_status(&messages, &hook), Status::ApiOverloaded);
     }
 
     #[test]
     fn detect_question() {
-        let messages = vec![
-            make_message("assistant", "I need more info.", Some("AskUserQuestion"), false, None),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "I need more info.",
+            Some("AskUserQuestion"),
+            false,
+            None,
+        )];
         let hook = make_hook_input("AskUserQuestion");
         assert_eq!(detect_status(&messages, &hook), Status::Question);
     }
 
     #[test]
     fn detect_plan_ready() {
-        let messages = vec![
-            make_message("assistant", "Here is my plan.", None, false, None),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "Here is my plan.",
+            None,
+            false,
+            None,
+        )];
         let hook = make_hook_input("ExitPlanMode");
         assert_eq!(detect_status(&messages, &hook), Status::PlanReady);
     }
 
     #[test]
     fn detect_task_complete_with_write_tool() {
-        let messages = vec![
-            make_message("assistant", "Writing the file.", Some("Write"), false, None),
-        ];
+        let messages = vec![make_message(
+            "assistant",
+            "Writing the file.",
+            Some("Write"),
+            false,
+            None,
+        )];
         let hook = make_hook_input("");
         assert_eq!(detect_status(&messages, &hook), Status::TaskComplete);
     }
@@ -354,9 +395,10 @@ mod tests {
 
     #[test]
     fn parse_session_limit_fixture() {
-        let path = Path::new(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/session_limit.jsonl")
-        );
+        let path = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/session_limit.jsonl"
+        ));
         let messages = parse_transcript(path).expect("should parse fixture");
         assert!(!messages.is_empty());
         let hook = make_hook_input("");
@@ -365,9 +407,10 @@ mod tests {
 
     #[test]
     fn parse_task_complete_fixture() {
-        let path = Path::new(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/task_complete.jsonl")
-        );
+        let path = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/task_complete.jsonl"
+        ));
         let messages = parse_transcript(path).expect("should parse fixture");
         assert!(!messages.is_empty());
         let hook = make_hook_input("");

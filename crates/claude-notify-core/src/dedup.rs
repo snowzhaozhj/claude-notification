@@ -77,7 +77,10 @@ mod tests {
         let _guard = DedupLock::try_acquire(&path, 60).unwrap().unwrap();
 
         let second = DedupLock::try_acquire(&path, 60).unwrap();
-        assert!(second.is_none(), "second acquire should fail while lock is held");
+        assert!(
+            second.is_none(),
+            "second acquire should fail while lock is held"
+        );
     }
 
     #[test]
@@ -89,12 +92,18 @@ mod tests {
         fs::write(&path, "0").unwrap();
 
         let guard = DedupLock::try_acquire(&path, 60).unwrap();
-        assert!(guard.is_some(), "stale lock should be replaced and acquire succeed");
+        assert!(
+            guard.is_some(),
+            "stale lock should be replaced and acquire succeed"
+        );
 
         // The file should now contain a recent timestamp, not "0".
         let content = fs::read_to_string(&path).unwrap();
         let ts: u64 = content.trim().parse().unwrap();
-        assert!(ts > 0, "lock file should contain a real timestamp after replacing stale lock");
+        assert!(
+            ts > 0,
+            "lock file should contain a real timestamp after replacing stale lock"
+        );
     }
 
     #[test]

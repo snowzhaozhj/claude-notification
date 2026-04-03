@@ -6,13 +6,11 @@ use crate::types::Status;
 /// Dispatch to the appropriate extractor based on status.
 pub fn extract_summary(status: &Status, messages: &[Message]) -> String {
     match status {
-        Status::Question      => extract_question(messages),
-        Status::PlanReady     => extract_plan_summary(messages),
-        Status::ApiError
-        | Status::ApiOverloaded => extract_error_info(messages),
-        Status::SessionLimit  => "Session limit reached. Please start a new session.".to_string(),
-        Status::TaskComplete
-        | Status::ReviewComplete => extract_work_summary(messages),
+        Status::Question => extract_question(messages),
+        Status::PlanReady => extract_plan_summary(messages),
+        Status::ApiError | Status::ApiOverloaded => extract_error_info(messages),
+        Status::SessionLimit => "Session limit reached. Please start a new session.".to_string(),
+        Status::TaskComplete | Status::ReviewComplete => extract_work_summary(messages),
     }
 }
 
@@ -70,7 +68,10 @@ pub fn extract_plan_summary(messages: &[Message]) -> String {
 pub fn extract_error_info(messages: &[Message]) -> String {
     for msg in messages.iter().rev() {
         if msg.is_api_error {
-            let code = msg.error_status.map(|c| format!("[{}] ", c)).unwrap_or_default();
+            let code = msg
+                .error_status
+                .map(|c| format!("[{}] ", c))
+                .unwrap_or_default();
             let text = if msg.text_content.is_empty() {
                 "API error occurred".to_string()
             } else {
@@ -96,34 +97,58 @@ pub fn extract_error_info(messages: &[Message]) -> String {
 pub fn extract_work_summary(messages: &[Message]) -> String {
     // Count actions across all messages
     let mut writes = 0usize;
-    let mut reads  = 0usize;
+    let mut reads = 0usize;
     let mut bashes = 0usize;
 
     const WRITE_TOOLS: &[&str] = &["Write", "Edit", "NotebookEdit"];
-    const READ_TOOLS:  &[&str] = &["Read", "Grep", "Glob"];
+    const READ_TOOLS: &[&str] = &["Read", "Grep", "Glob"];
 
     for msg in messages {
         match msg.tool_name.as_deref() {
             Some(n) if WRITE_TOOLS.contains(&n) => writes += 1,
-            Some("Bash")                         => bashes += 1,
-            Some(n) if READ_TOOLS.contains(&n)  => reads  += 1,
-            _                                    => {}
+            Some("Bash") => bashes += 1,
+            Some(n) if READ_TOOLS.contains(&n) => reads += 1,
+            _ => {}
         }
     }
 
     // Build action counts string
     let mut parts: Vec<String> = Vec::new();
-    if writes > 0 { parts.push(format!("{} write{}", writes, if writes == 1 { "" } else { "s" })); }
-    if reads  > 0 { parts.push(format!("{} read{}",  reads,  if reads  == 1 { "" } else { "s" })); }
-    if bashes > 0 { parts.push(format!("{} bash{}",  bashes, if bashes == 1 { "" } else { "es" })); }
+    if writes > 0 {
+        parts.push(format!(
+            "{} write{}",
+            writes,
+            if writes == 1 { "" } else { "s" }
+        ));
+    }
+    if reads > 0 {
+        parts.push(format!(
+            "{} read{}",
+            reads,
+            if reads == 1 { "" } else { "s" }
+        ));
+    }
+    if bashes > 0 {
+        parts.push(format!(
+            "{} bash{}",
+            bashes,
+            if bashes == 1 { "" } else { "es" }
+        ));
+    }
 
     let counts = parts.join(", ");
 
     // Last meaningful text from last 5 messages
-    let last5_start = if messages.len() > 5 { messages.len() - 5 } else { 0 };
+    let last5_start = if messages.len() > 5 {
+        messages.len() - 5
+    } else {
+        0
+    };
     let last5 = &messages[last5_start..];
 
-    let last_text = last5.iter().rev()
+    let last_text = last5
+        .iter()
+        .rev()
         .find(|m| !m.text_content.is_empty() && m.tool_name.is_none())
         .map(|m| clean_and_truncate(&m.text_content))
         .unwrap_or_default();
@@ -345,7 +370,7 @@ pub fn truncate(text: &str, max_len: usize) -> String {
     let chars: Vec<char> = text.chars().collect();
 
     // Reserve 3 chars for "..."
-    let target = if max_len >= 3 { max_len - 3 } else { 0 };
+    let target = max_len.saturating_sub(3);
 
     // Find the last space at or before `target`
     let mut cut = target;
@@ -375,9 +400,9 @@ mod tests {
         error_status: Option<u16>,
     ) -> Message {
         Message {
-            msg_type:     "assistant".to_string(),
+            msg_type: "assistant".to_string(),
             text_content: text_content.to_string(),
-            tool_name:    tool_name.map(|s| s.to_string()),
+            tool_name: tool_name.map(|s| s.to_string()),
             tool_input,
             is_api_error,
             error_status,
@@ -390,23 +415,38 @@ mod tests {
     fn clean_markdown_formatting() {
         let input = "## Header\n**bold** and __under__ and *italic* and `code` and [link](https://example.com)";
         let result = clean_markdown(input);
-        assert!(!result.contains('#'),  "headers should be removed");
+        assert!(!result.contains('#'), "headers should be removed");
         assert!(!result.contains("**"), "bold markers should be removed");
-        assert!(!result.contains("__"), "underline markers should be removed");
-        assert!(!result.contains('`'),  "inline backticks should be removed");
-        assert!(!result.contains("https://example.com"), "urls should be removed");
-        assert!(result.contains("link"),   "link text should be preserved");
+        assert!(
+            !result.contains("__"),
+            "underline markers should be removed"
+        );
+        assert!(!result.contains('`'), "inline backticks should be removed");
+        assert!(
+            !result.contains("https://example.com"),
+            "urls should be removed"
+        );
+        assert!(result.contains("link"), "link text should be preserved");
         assert!(result.contains("Header"), "header text should be preserved");
-        assert!(result.contains("bold"),   "bold text should be preserved");
+        assert!(result.contains("bold"), "bold text should be preserved");
     }
 
     #[test]
     fn clean_code_blocks() {
         let input = "Some text\n```rust\nlet x = 1;\nprintln!(\"{}\", x);\n```\nMore text";
         let result = clean_markdown(input);
-        assert!(!result.contains("let x"),  "code block content should be removed");
-        assert!(result.contains("Some text"), "text before code block should remain");
-        assert!(result.contains("More text"), "text after code block should remain");
+        assert!(
+            !result.contains("let x"),
+            "code block content should be removed"
+        );
+        assert!(
+            result.contains("Some text"),
+            "text before code block should remain"
+        );
+        assert!(
+            result.contains("More text"),
+            "text after code block should remain"
+        );
     }
 
     #[test]
@@ -416,7 +456,10 @@ mod tests {
         assert!(!result.contains("  "), "double spaces should be collapsed");
         assert!(!result.contains('\n'), "newlines should be collapsed");
         assert!(!result.contains('\t'), "tabs should be collapsed");
-        assert!(result.contains("Hello world"), "words should remain separated by single space");
+        assert!(
+            result.contains("Hello world"),
+            "words should remain separated by single space"
+        );
     }
 
     // ── truncate tests ─────────────────────────────────────────────────────────
@@ -425,11 +468,20 @@ mod tests {
     fn truncate_at_word_boundary() {
         let text = "The quick brown fox jumps over the lazy dog and then some more words here";
         let result = truncate(text, 30);
-        assert!(result.ends_with("..."), "truncated text should end with ...");
-        assert!(result.chars().count() <= 30, "result should not exceed max_len");
+        assert!(
+            result.ends_with("..."),
+            "truncated text should end with ..."
+        );
+        assert!(
+            result.chars().count() <= 30,
+            "result should not exceed max_len"
+        );
         // Should break at word boundary, not mid-word
         let without_ellipsis = result.trim_end_matches("...");
-        assert!(!without_ellipsis.ends_with(' '), "no trailing space before ...");
+        assert!(
+            !without_ellipsis.ends_with(' '),
+            "no trailing space before ..."
+        );
     }
 
     #[test]
@@ -443,15 +495,13 @@ mod tests {
 
     #[test]
     fn extract_question_from_tool() {
-        let messages = vec![
-            make_msg(
-                Some("AskUserQuestion"),
-                json!({"question": "Would you like me to proceed with the refactoring?"}),
-                "",
-                false,
-                None,
-            ),
-        ];
+        let messages = vec![make_msg(
+            Some("AskUserQuestion"),
+            json!({"question": "Would you like me to proceed with the refactoring?"}),
+            "",
+            false,
+            None,
+        )];
         let result = extract_question(&messages);
         assert!(result.contains("proceed"), "should extract question text");
         assert!(!result.is_empty(), "result should not be empty");
@@ -459,11 +509,18 @@ mod tests {
 
     #[test]
     fn extract_question_fallback_to_text() {
-        let messages = vec![
-            make_msg(None, json!(null), "I've analyzed the code. Should I continue?", false, None),
-        ];
+        let messages = vec![make_msg(
+            None,
+            json!(null),
+            "I've analyzed the code. Should I continue?",
+            false,
+            None,
+        )];
         let result = extract_question(&messages);
-        assert!(result.contains("Should I continue"), "should use text with '?'");
+        assert!(
+            result.contains("Should I continue"),
+            "should use text with '?'"
+        );
     }
 
     // ── extract_work_summary tests ─────────────────────────────────────────────
@@ -471,16 +528,16 @@ mod tests {
     #[test]
     fn extract_work_summary_with_action_counts() {
         let messages = vec![
-            make_msg(Some("Write"), json!(null), "",    false, None),
-            make_msg(Some("Write"), json!(null), "",    false, None),
-            make_msg(Some("Read"),  json!(null), "",    false, None),
-            make_msg(Some("Bash"),  json!(null), "",    false, None),
-            make_msg(None,          json!(null), "Done!", false, None),
+            make_msg(Some("Write"), json!(null), "", false, None),
+            make_msg(Some("Write"), json!(null), "", false, None),
+            make_msg(Some("Read"), json!(null), "", false, None),
+            make_msg(Some("Bash"), json!(null), "", false, None),
+            make_msg(None, json!(null), "Done!", false, None),
         ];
         let result = extract_work_summary(&messages);
         assert!(result.contains("2 write"), "should count 2 writes");
-        assert!(result.contains("1 read"),  "should count 1 read");
-        assert!(result.contains("1 bash"),  "should count 1 bash");
+        assert!(result.contains("1 read"), "should count 1 read");
+        assert!(result.contains("1 bash"), "should count 1 bash");
     }
 
     // ── extract_summary dispatch tests ────────────────────────────────────────
@@ -488,7 +545,10 @@ mod tests {
     #[test]
     fn extract_session_limit() {
         let result = extract_summary(&Status::SessionLimit, &[]);
-        assert!(result.contains("Session limit"), "should return session limit message");
+        assert!(
+            result.contains("Session limit"),
+            "should return session limit message"
+        );
     }
 
     // ── edge cases ─────────────────────────────────────────────────────────────
@@ -497,7 +557,13 @@ mod tests {
     fn clean_and_truncate_150_char_limit() {
         let long = "word ".repeat(50); // 250 chars
         let result = clean_and_truncate(&long);
-        assert!(result.chars().count() <= 150, "should be truncated to 150 chars");
-        assert!(result.ends_with("..."), "truncated result should end with ...");
+        assert!(
+            result.chars().count() <= 150,
+            "should be truncated to 150 chars"
+        );
+        assert!(
+            result.ends_with("..."),
+            "truncated result should end with ..."
+        );
     }
 }

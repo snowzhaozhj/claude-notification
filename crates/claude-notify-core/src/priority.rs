@@ -18,7 +18,10 @@ impl PriorityEngine {
         overrides: HashMap<String, Priority>,
         channel_overrides: HashMap<String, HashMap<String, bool>>,
     ) -> Self {
-        Self { overrides, channel_overrides }
+        Self {
+            overrides,
+            channel_overrides,
+        }
     }
 
     /// Return the priority for a given status, consulting overrides first.
@@ -117,12 +120,12 @@ mod tests {
     fn default_priorities() {
         let e = engine_default();
 
-        assert_eq!(e.assess(&Status::ApiError),      Priority::Urgent);
-        assert_eq!(e.assess(&Status::SessionLimit),  Priority::Urgent);
-        assert_eq!(e.assess(&Status::Question),      Priority::Urgent);
+        assert_eq!(e.assess(&Status::ApiError), Priority::Urgent);
+        assert_eq!(e.assess(&Status::SessionLimit), Priority::Urgent);
+        assert_eq!(e.assess(&Status::Question), Priority::Urgent);
 
-        assert_eq!(e.assess(&Status::TaskComplete),  Priority::Normal);
-        assert_eq!(e.assess(&Status::PlanReady),     Priority::Normal);
+        assert_eq!(e.assess(&Status::TaskComplete), Priority::Normal);
+        assert_eq!(e.assess(&Status::PlanReady), Priority::Normal);
         assert_eq!(e.assess(&Status::ApiOverloaded), Priority::Normal);
 
         assert_eq!(e.assess(&Status::ReviewComplete), Priority::Low);
@@ -132,7 +135,7 @@ mod tests {
     fn priority_override() {
         let overrides: HashMap<String, Priority> = [
             ("review_complete".to_string(), Priority::Normal),
-            ("question".to_string(),        Priority::Low),
+            ("question".to_string(), Priority::Low),
         ]
         .into_iter()
         .collect();
@@ -141,11 +144,11 @@ mod tests {
 
         // Overridden
         assert_eq!(e.assess(&Status::ReviewComplete), Priority::Normal);
-        assert_eq!(e.assess(&Status::Question),       Priority::Low);
+        assert_eq!(e.assess(&Status::Question), Priority::Low);
 
         // Unchanged
-        assert_eq!(e.assess(&Status::ApiError),      Priority::Urgent);
-        assert_eq!(e.assess(&Status::TaskComplete),  Priority::Normal);
+        assert_eq!(e.assess(&Status::ApiError), Priority::Urgent);
+        assert_eq!(e.assess(&Status::TaskComplete), Priority::Normal);
     }
 
     #[test]

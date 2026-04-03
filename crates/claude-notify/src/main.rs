@@ -108,8 +108,7 @@ fn run(cli: Cli) -> Result<()> {
     let plugin_root = resolve_plugin_root();
 
     // Load layered config
-    let config = Config::load_layered(&plugin_root, "")
-        .context("failed to load config")?;
+    let config = Config::load_layered(&plugin_root, "").context("failed to load config")?;
 
     // Optional debug logging
     if config.debug.enabled {
@@ -185,17 +184,17 @@ fn setup_debug_logging(log_file: &str) {
 
 fn handle_hook(config: &Config, plugin_root: &Path, _hook_type: &str) -> Result<()> {
     // 1. Parse HookInput from stdin
-    let hook_input = HookInput::from_stdin()
-        .context("failed to parse hook input from stdin")?;
+    let hook_input = HookInput::from_stdin().context("failed to parse hook input from stdin")?;
 
     // 2. DedupLock check (2s TTL)
     let lock_path = dedup::dedup_lock_path(&hook_input.session_id);
-    let _lock = match dedup::DedupLock::try_acquire(&lock_path, 2)
-        .context("dedup lock error")?
-    {
+    let _lock = match dedup::DedupLock::try_acquire(&lock_path, 2).context("dedup lock error")? {
         Some(lock) => lock,
         None => {
-            tracing::debug!("duplicate hook event suppressed for session {}", hook_input.session_id);
+            tracing::debug!(
+                "duplicate hook event suppressed for session {}",
+                hook_input.session_id
+            );
             return Ok(());
         }
     };
@@ -203,8 +202,7 @@ fn handle_hook(config: &Config, plugin_root: &Path, _hook_type: &str) -> Result<
     // 3. Parse transcript
     let transcript_path = Path::new(&hook_input.transcript_path);
     let messages = if transcript_path.exists() {
-        analyzer::parse_transcript(transcript_path)
-            .unwrap_or_default()
+        analyzer::parse_transcript(transcript_path).unwrap_or_default()
     } else {
         Vec::new()
     };
@@ -237,26 +235,42 @@ fn handle_hook(config: &Config, plugin_root: &Path, _hook_type: &str) -> Result<
 
     // 11. Match decision
     match decision {
-        Decision::Notify { channels, notification, .. } => {
+        Decision::Notify {
+            channels,
+            notification,
+            ..
+        } => {
             tracing::debug!("Decision: Notify via {:?}", channels);
             let dispatchers = build_dispatchers(config, plugin_root, &channels);
             let refs: Vec<&dyn Dispatcher> = dispatchers.iter().map(|d| d.as_ref()).collect();
             let router = NotifyRouter::new();
             let report = router.dispatch_to(&refs, &notification.title, &notification.body);
             if report.failures > 0 {
-                warn!("dispatch had {} failures: {:?}", report.failures, report.errors);
+                warn!(
+                    "dispatch had {} failures: {:?}",
+                    report.failures, report.errors
+                );
             }
             state.update_after_notification(status.as_str(), &summary);
             let _ = state.save(&state_path);
         }
-        Decision::Downgrade { channels, notification, from, to, reason } => {
+        Decision::Downgrade {
+            channels,
+            notification,
+            from,
+            to,
+            reason,
+        } => {
             tracing::debug!("Decision: Downgrade {:?} → {:?} ({})", from, to, reason);
             let dispatchers = build_dispatchers(config, plugin_root, &channels);
             let refs: Vec<&dyn Dispatcher> = dispatchers.iter().map(|d| d.as_ref()).collect();
             let router = NotifyRouter::new();
             let report = router.dispatch_to(&refs, &notification.title, &notification.body);
             if report.failures > 0 {
-                warn!("dispatch had {} failures: {:?}", report.failures, report.errors);
+                warn!(
+                    "dispatch had {} failures: {:?}",
+                    report.failures, report.errors
+                );
             }
             state.update_after_notification(status.as_str(), &summary);
             let _ = state.save(&state_path);
@@ -303,7 +317,7 @@ fn build_dispatchers(
                 dispatchers.push(Box::new(TerminalBellDispatcher::new()));
             }
             Channel::Webhook if config.webhook.enabled && !config.webhook.url.is_empty() => {
-                let preset = WebhookPreset::from_str(&config.webhook.preset);
+                let preset = WebhookPreset::parse(&config.webhook.preset);
                 let mut dispatcher = WebhookDispatcher::new(config.webhook.url.clone())
                     .with_preset(preset)
                     .with_retry_max(config.webhook.retry_max)
@@ -362,8 +376,8 @@ fn handle_test(config: &Config, plugin_root: &Path) -> Result<()> {
 fn handle_config(config: &Config, action: ConfigAction) -> Result<()> {
     match action {
         ConfigAction::Show => {
-            let yaml = serde_yaml::to_string(config)
-                .context("failed to serialize config to YAML")?;
+            let yaml =
+                serde_yaml::to_string(config).context("failed to serialize config to YAML")?;
             print!("{yaml}");
         }
         ConfigAction::Validate => {

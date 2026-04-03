@@ -39,8 +39,7 @@ impl SoundDispatcher {
 
         let file = File::open(&path).map_err(|e| e.to_string())?;
         let reader = BufReader::new(file);
-        let (_stream, stream_handle) =
-            OutputStream::try_default().map_err(|e| e.to_string())?;
+        let (_stream, stream_handle) = OutputStream::try_default().map_err(|e| e.to_string())?;
         let sink = Sink::try_new(&stream_handle).map_err(|e| e.to_string())?;
         sink.set_volume(self.volume);
         let source = Decoder::new(reader).map_err(|e| e.to_string())?;

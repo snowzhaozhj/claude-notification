@@ -460,7 +460,6 @@ dependencies = [
 name = "claude-notify-platform"
 version = "0.1.0"
 dependencies = [
- "mac-notification-sys",
  "notify-rust",
  "thiserror 1.0.69",
  "tracing",

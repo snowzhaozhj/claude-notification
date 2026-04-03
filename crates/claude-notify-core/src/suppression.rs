@@ -99,10 +99,7 @@ impl<'a> SuppressionEngine<'a> {
     pub fn check_filters(&self, status: &Status) -> Option<String> {
         for filter in &self.config.filters {
             if filter_matches_status(filter, status) {
-                return Some(format!(
-                    "filter rule matched status '{}'",
-                    status.as_str()
-                ));
+                return Some(format!("filter rule matched status '{}'", status.as_str()));
             }
         }
         None
@@ -155,7 +152,10 @@ mod tests {
         let state = SessionState::new();
 
         let result = engine.check(&Status::Question, "hello?", &state, false);
-        assert!(result.is_none(), "first notification should not be suppressed");
+        assert!(
+            result.is_none(),
+            "first notification should not be suppressed"
+        );
     }
 
     #[test]

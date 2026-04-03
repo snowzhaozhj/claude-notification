@@ -1,5 +1,4 @@
 /// No-op fallback implementations for platforms without native support.
-
 use crate::{DesktopNotifier, UserActivityDetector};
 
 /// A no-op activity detector that always reports idle_seconds=0

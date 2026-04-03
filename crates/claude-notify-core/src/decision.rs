@@ -25,7 +25,10 @@ pub struct DecisionEngine<'a> {
 
 impl<'a> DecisionEngine<'a> {
     pub fn new(config: &'a Config, priority_engine: &'a PriorityEngine) -> Self {
-        Self { config, priority_engine }
+        Self {
+            config,
+            priority_engine,
+        }
     }
 
     /// Main decision method.
@@ -62,14 +65,10 @@ impl<'a> DecisionEngine<'a> {
 
         // 4. Activity / focus downgrade
         let activity_cfg = &self.config.activity;
-        let user_is_idle =
-            activity.idle_seconds() >= activity_cfg.idle_threshold_seconds;
+        let user_is_idle = activity.idle_seconds() >= activity_cfg.idle_threshold_seconds;
         let bypasses_idle = self.priority_engine.bypasses_idle_check(&priority);
 
-        if activity_cfg.enabled
-            && !bypasses_idle
-            && activity.is_terminal_focused()
-            && !user_is_idle
+        if activity_cfg.enabled && !bypasses_idle && activity.is_terminal_focused() && !user_is_idle
         {
             // Downgrade: user is actively watching the terminal
             let downgrade_channels = if self.config.terminal_bell.enabled {
@@ -78,8 +77,7 @@ impl<'a> DecisionEngine<'a> {
                 vec![Channel::Desktop]
             };
 
-            let downgraded_notification =
-                notification.with_priority(Priority::Low);
+            let downgraded_notification = notification.with_priority(Priority::Low);
 
             return Decision::Downgrade {
                 from: priority,
@@ -92,7 +90,11 @@ impl<'a> DecisionEngine<'a> {
 
         // 5. Normal notify
         let channels = self.priority_engine.channels_for(&priority);
-        Decision::Notify { channels, priority, notification }
+        Decision::Notify {
+            channels,
+            priority,
+            notification,
+        }
     }
 }
 
@@ -124,8 +126,7 @@ mod tests {
 
     fn default_engine_pair() -> (Config, PriorityEngine) {
         let config = Config::default();
-        let engine =
-            PriorityEngine::new(HashMap::new(), HashMap::new());
+        let engine = PriorityEngine::new(HashMap::new(), HashMap::new());
         (config, engine)
     }
 
@@ -142,13 +143,17 @@ mod tests {
         let (config, priority_engine) = default_engine_pair();
         let engine = DecisionEngine::new(&config, &priority_engine);
 
-        let activity = MockActivity { idle_seconds: 60, terminal_focused: false };
+        let activity = MockActivity {
+            idle_seconds: 60,
+            terminal_focused: false,
+        };
 
-        let decision =
-            engine.decide(Status::TaskComplete, "all done", &activity, &empty_state());
+        let decision = engine.decide(Status::TaskComplete, "all done", &activity, &empty_state());
 
         match decision {
-            Decision::Notify { priority, channels, .. } => {
+            Decision::Notify {
+                priority, channels, ..
+            } => {
                 assert_eq!(priority, Priority::Normal);
                 assert!(!channels.is_empty());
             }
@@ -163,10 +168,12 @@ mod tests {
         let (config, priority_engine) = default_engine_pair();
         let engine = DecisionEngine::new(&config, &priority_engine);
 
-        let activity = MockActivity { idle_seconds: 5, terminal_focused: true };
+        let activity = MockActivity {
+            idle_seconds: 5,
+            terminal_focused: true,
+        };
 
-        let decision =
-            engine.decide(Status::TaskComplete, "task done", &activity, &empty_state());
+        let decision = engine.decide(Status::TaskComplete, "task done", &activity, &empty_state());
 
         match decision {
             Decision::Downgrade { to, channels, .. } => {
@@ -191,10 +198,12 @@ mod tests {
         let (config, priority_engine) = default_engine_pair();
         let engine = DecisionEngine::new(&config, &priority_engine);
 
-        let activity = MockActivity { idle_seconds: 5, terminal_focused: true };
+        let activity = MockActivity {
+            idle_seconds: 5,
+            terminal_focused: true,
+        };
 
-        let decision =
-            engine.decide(Status::ApiError, "API failure", &activity, &empty_state());
+        let decision = engine.decide(Status::ApiError, "API failure", &activity, &empty_state());
 
         match decision {
             Decision::Notify { priority, .. } => {
@@ -213,8 +222,9 @@ mod tests {
     fn suppress_within_cooldown() {
         let config = Config::default();
         // Override Question priority to Normal so bypass_cooldown=false
-        let overrides: HashMap<String, Priority> =
-            [("question".to_string(), Priority::Normal)].into_iter().collect();
+        let overrides: HashMap<String, Priority> = [("question".to_string(), Priority::Normal)]
+            .into_iter()
+            .collect();
         let priority_engine = PriorityEngine::new(overrides, HashMap::new());
         let engine = DecisionEngine::new(&config, &priority_engine);
 
@@ -227,10 +237,12 @@ mod tests {
             last_task_complete_time: Some(past),
         };
 
-        let activity = MockActivity { idle_seconds: 60, terminal_focused: false };
+        let activity = MockActivity {
+            idle_seconds: 60,
+            terminal_focused: false,
+        };
 
-        let decision =
-            engine.decide(Status::Question, "what next?", &activity, &state);
+        let decision = engine.decide(Status::Question, "what next?", &activity, &state);
 
         match decision {
             Decision::Suppress { reason } => {
@@ -253,10 +265,12 @@ mod tests {
         let priority_engine = PriorityEngine::new(HashMap::new(), HashMap::new());
         let engine = DecisionEngine::new(&config, &priority_engine);
 
-        let activity = MockActivity { idle_seconds: 5, terminal_focused: true };
+        let activity = MockActivity {
+            idle_seconds: 5,
+            terminal_focused: true,
+        };
 
-        let decision =
-            engine.decide(Status::TaskComplete, "finished", &activity, &empty_state());
+        let decision = engine.decide(Status::TaskComplete, "finished", &activity, &empty_state());
 
         match decision {
             Decision::Notify { .. } => {} // correct

@@ -13,6 +13,4 @@ pub mod suppression;
 pub mod types;
 
 pub use error::{NotifyError, Result};
-pub use types::{
-    Channel, ClickAction, Decision, Notification, NotifyEvent, Priority, Status,
-};
+pub use types::{Channel, ClickAction, Decision, Notification, NotifyEvent, Priority, Status};

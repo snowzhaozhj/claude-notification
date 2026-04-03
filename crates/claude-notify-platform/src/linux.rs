@@ -1,5 +1,3 @@
-#![cfg(target_os = "linux")]
-
 use crate::{DesktopNotifier, UserActivityDetector};
 use std::process::Command;
 
@@ -50,10 +48,7 @@ impl UserActivityDetector for LinuxActivityDetector {
         match output {
             Ok(out) if out.status.success() => {
                 let text = String::from_utf8_lossy(&out.stdout);
-                text.trim()
-                    .parse::<u64>()
-                    .map(|ms| ms / 1000)
-                    .unwrap_or(0)
+                text.trim().parse::<u64>().map(|ms| ms / 1000).unwrap_or(0)
             }
             _ => 0,
         }

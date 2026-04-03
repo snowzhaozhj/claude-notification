@@ -1,15 +1,15 @@
 // claude-notify-dispatch: notification routing and audio dispatch
 
-pub mod traits;
 pub mod desktop;
 pub mod sound;
 pub mod terminal_bell;
+pub mod traits;
 pub mod webhook;
 
-pub use traits::Dispatcher;
 pub use desktop::DesktopDispatcher;
 pub use sound::SoundDispatcher;
 pub use terminal_bell::TerminalBellDispatcher;
+pub use traits::Dispatcher;
 pub use webhook::{WebhookDispatcher, WebhookPreset};
 
 /// Aggregated result from dispatching to multiple channels.
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn router_continues_on_failure() {
         let router = NotifyRouter::new();
-        let d1 = FakeDispatcher::new(true);  // fails
+        let d1 = FakeDispatcher::new(true); // fails
         let d2 = FakeDispatcher::new(false); // succeeds
         let dispatchers: &[&dyn Dispatcher] = &[&d1, &d2];
 

@@ -110,6 +110,7 @@ impl Default for WebhookConfig {
 /// Per-status overrides that can change behaviour for a specific status
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct StatusOverride {
     /// Override the enabled state for this status
     pub enabled: Option<bool>,
@@ -117,16 +118,6 @@ pub struct StatusOverride {
     pub sound: Option<String>,
     /// Override the notification title for this status
     pub title: Option<String>,
-}
-
-impl Default for StatusOverride {
-    fn default() -> Self {
-        Self {
-            enabled: None,
-            sound: None,
-            title: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -153,6 +144,7 @@ impl Default for ActivityConfig {
 /// A single filter rule for notification suppression
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct SuppressionFilter {
     /// Match a specific status (snake_case, e.g. "task_complete")
     pub status: Option<String>,
@@ -160,16 +152,6 @@ pub struct SuppressionFilter {
     pub git_branch: Option<String>,
     /// Match on project folder path (substring match)
     pub folder: Option<String>,
-}
-
-impl Default for SuppressionFilter {
-    fn default() -> Self {
-        Self {
-            status: None,
-            git_branch: None,
-            folder: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -219,6 +201,7 @@ impl Default for TeamConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct DebugConfig {
     /// Enable debug logging
     pub enabled: bool,
@@ -226,19 +209,11 @@ pub struct DebugConfig {
     pub log_file: String,
 }
 
-impl Default for DebugConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            log_file: String::new(),
-        }
-    }
-}
-
 // ─── Top-level Config ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct Config {
     pub desktop: DesktopConfig,
     pub sound: SoundConfig,
@@ -260,24 +235,6 @@ pub struct Config {
     pub status_overrides: HashMap<String, StatusOverride>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            desktop: DesktopConfig::default(),
-            sound: SoundConfig::default(),
-            terminal_bell: TerminalBellConfig::default(),
-            webhook: WebhookConfig::default(),
-            activity: ActivityConfig::default(),
-            suppression: SuppressionConfig::default(),
-            team: TeamConfig::default(),
-            debug: DebugConfig::default(),
-            priority_overrides: HashMap::new(),
-            priority_channels: HashMap::new(),
-            status_overrides: HashMap::new(),
-        }
-    }
-}
-
 // ─── Loading ──────────────────────────────────────────────────────────────────
 
 impl Config {
@@ -288,9 +245,7 @@ impl Config {
         if !path.exists() {
             return Ok(Config::default());
         }
-        let text = std::fs::read_to_string(path).map_err(|e| {
-            crate::NotifyError::Io(e)
-        })?;
+        let text = std::fs::read_to_string(path).map_err(crate::NotifyError::Io)?;
         let cfg: Config = serde_yaml::from_str(&text).map_err(|e| {
             crate::NotifyError::Config(format!("YAML parse error in {:?}: {e}", path))
         })?;
@@ -312,12 +267,19 @@ impl Config {
         })?;
 
         // Layer 1: plugin built-in YAML
-        let builtin_path = plugin_root.as_ref().join("config").join("default-config.yaml");
+        let builtin_path = plugin_root
+            .as_ref()
+            .join("config")
+            .join("default-config.yaml");
         let builtin_value = yaml_value_from_file_or_empty(&builtin_path)?;
 
         // Layer 2: user global (~/.claude/claude-notification/config.yaml)
         let user_global_path = home_dir()
-            .map(|h| h.join(".claude").join("claude-notification").join("config.yaml"))
+            .map(|h| {
+                h.join(".claude")
+                    .join("claude-notification")
+                    .join("config.yaml")
+            })
             .unwrap_or_else(|| PathBuf::from(""));
         let user_value = if user_global_path.as_os_str().is_empty() {
             Value::Null
@@ -397,10 +359,9 @@ fn yaml_value_from_file_or_empty(path: &Path) -> crate::Result<Value> {
     if !path.exists() {
         return Ok(Value::Null);
     }
-    let text = std::fs::read_to_string(path).map_err(|e| crate::NotifyError::Io(e))?;
-    let value: Value = serde_yaml::from_str(&text).map_err(|e| {
-        crate::NotifyError::Config(format!("YAML parse error in {:?}: {e}", path))
-    })?;
+    let text = std::fs::read_to_string(path).map_err(crate::NotifyError::Io)?;
+    let value: Value = serde_yaml::from_str(&text)
+        .map_err(|e| crate::NotifyError::Config(format!("YAML parse error in {:?}: {e}", path)))?;
     Ok(value)
 }
 
@@ -513,7 +474,10 @@ priority_overrides:
   question: low
 "#;
         let cfg: Config = serde_yaml::from_str(yaml).expect("should parse");
-        assert_eq!(cfg.priority_overrides.get("task_complete"), Some(&Priority::Urgent));
+        assert_eq!(
+            cfg.priority_overrides.get("task_complete"),
+            Some(&Priority::Urgent)
+        );
         assert_eq!(cfg.priority_overrides.get("question"), Some(&Priority::Low));
     }
 
@@ -534,7 +498,10 @@ status_overrides:
         assert_eq!(api_err.title.as_deref(), Some("API problem!"));
         assert!(api_err.sound.is_none());
 
-        let task = cfg.status_overrides.get("task_complete").expect("should exist");
+        let task = cfg
+            .status_overrides
+            .get("task_complete")
+            .expect("should exist");
         assert_eq!(task.sound.as_deref(), Some("ding.wav"));
         assert!(task.enabled.is_none());
         assert!(task.title.is_none());

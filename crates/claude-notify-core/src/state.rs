@@ -99,12 +99,17 @@ mod tests {
         let loaded = SessionState::load(&path).expect("load should succeed");
 
         assert!(loaded.last_notification_time.is_some());
-        assert_eq!(loaded.last_notification_status.as_deref(), Some("task_complete"));
-        assert_eq!(loaded.last_notification_content.as_deref(), Some("job done"));
+        assert_eq!(
+            loaded.last_notification_status.as_deref(),
+            Some("task_complete")
+        );
+        assert_eq!(
+            loaded.last_notification_content.as_deref(),
+            Some("job done")
+        );
         assert!(loaded.last_task_complete_time.is_some());
         assert_eq!(
-            loaded.last_notification_time,
-            loaded.last_task_complete_time,
+            loaded.last_notification_time, loaded.last_task_complete_time,
             "task_complete should set both timestamps"
         );
     }
@@ -125,10 +130,7 @@ mod tests {
     #[test]
     fn state_path_contains_session_id() {
         let path = SessionState::state_path("abc-123");
-        assert_eq!(
-            path,
-            PathBuf::from("/tmp/claude-notify-state-abc-123.json")
-        );
+        assert_eq!(path, PathBuf::from("/tmp/claude-notify-state-abc-123.json"));
     }
 
     #[test]

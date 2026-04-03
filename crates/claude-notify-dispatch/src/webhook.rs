@@ -13,7 +13,7 @@ pub enum WebhookPreset {
 }
 
 impl WebhookPreset {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "slack" => Self::Slack,
             "discord" => Self::Discord,
@@ -96,13 +96,13 @@ impl WebhookDispatcher {
             }),
             WebhookPreset::Custom => {
                 if let Some(tmpl) = &self.template {
-                    let rendered = tmpl
-                        .replace("{{title}}", title)
-                        .replace("{{body}}", body);
-                    serde_json::from_str(&rendered).unwrap_or_else(|_| json!({
-                        "title": title,
-                        "body": body
-                    }))
+                    let rendered = tmpl.replace("{{title}}", title).replace("{{body}}", body);
+                    serde_json::from_str(&rendered).unwrap_or_else(|_| {
+                        json!({
+                            "title": title,
+                            "body": body
+                        })
+                    })
                 } else {
                     json!({
                         "title": title,
@@ -124,10 +124,18 @@ impl WebhookDispatcher {
                 Err(e) => {
                     attempt += 1;
                     if attempt > self.retry_max {
-                        return Err(format!("Webhook failed after {} retries: {}", self.retry_max, e));
+                        return Err(format!(
+                            "Webhook failed after {} retries: {}",
+                            self.retry_max, e
+                        ));
                     }
                     let backoff = 1u64 << (attempt - 1); // 1s, 2s, 4s
-                    tracing::warn!("Webhook attempt {} failed: {}. Retrying in {}s", attempt, e, backoff);
+                    tracing::warn!(
+                        "Webhook attempt {} failed: {}. Retrying in {}s",
+                        attempt,
+                        e,
+                        backoff
+                    );
                     std::thread::sleep(Duration::from_secs(backoff));
                 }
             }
@@ -136,9 +144,7 @@ impl WebhookDispatcher {
 
     fn send_once(&self, payload_str: &str) -> Result<(), String> {
         let timeout = Duration::from_secs(self.timeout_seconds);
-        let agent = ureq::AgentBuilder::new()
-            .timeout(timeout)
-            .build();
+        let agent = ureq::AgentBuilder::new().timeout(timeout).build();
 
         let mut req = agent.post(&self.url);
         for (k, v) in &self.headers {
