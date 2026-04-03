@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 All Rust code lives under `crates/` (Cargo workspace). Run commands from there:
 
 ```bash
+export PATH="$HOME/.cargo/bin:$PATH"  # cargo may not be in PATH
 cd crates
 cargo build                    # Dev build
 cargo build --release          # Release build (binary: target/release/claude-notify)
@@ -34,7 +35,7 @@ claude-notify sounds list         # List available sound files
 Four crates, one binary:
 
 - **claude-notify-core** — All business logic. Types, config, transcript analysis, priority/suppression/decision engines, session state. No platform dependencies. 64+ tests.
-- **claude-notify-platform** — Trait abstractions (`DesktopNotifier`, `UserActivityDetector`) with per-OS implementations. macOS uses `osascript`, Linux uses `notify-rust`, Windows uses `winrt-notification`.
+- **claude-notify-platform** — Trait abstractions (`DesktopNotifier`, `UserActivityDetector`) with per-OS implementations. macOS uses Swift app bundle (`swift-notifier/ClaudeNotifier.app`) with osascript fallback, Linux uses `notify-rust`, Windows uses `winrt-notification`.
 - **claude-notify-dispatch** — `Dispatcher` trait and implementations (desktop, sound via `rodio`, terminal bell, webhook). `NotifyRouter` fans out to all channels, failures don't block others.
 - **claude-notify** — Thin CLI binary (`clap` derive). Wires the other three crates together. Contains `ActivityAdapter` to bridge platform and core traits.
 
@@ -71,7 +72,16 @@ Loaded in order (later overrides earlier), deep-merged via `serde_yaml::Value`:
 ## Key Conventions
 
 - Errors in notification pipeline never block Claude Code — `main()` catches all errors and exits 0.
-- macOS notifications use `osascript` (not `mac-notification-sys`) because NSUserNotification is deprecated.
+- macOS notifications use native Swift .app bundle (`swift-notifier/`) for custom icon and click-to-focus. Falls back to osascript if Swift app unavailable. osascript shows Script Editor icon — avoid using it as primary.
+- `suppress_when_focused` defaults to false — terminal focus detection is unreliable from CLI subprocesses (terminal is always "frontmost" when running hook commands).
 - `UserActivity` trait is defined in core's `decision.rs`; `UserActivityDetector` is in platform's `lib.rs`. The binary bridges them via `ActivityAdapter`.
 - Status detection is priority-ordered: SessionLimit > ApiError > tool-based > fallback to TaskComplete.
 - Urgent priority bypasses both cooldown and idle check.
+
+## Development Gotchas
+
+- Plugin cache (`~/.claude/plugins/cache/`) is a snapshot from install time. After local changes: rebuild binary, copy to cache, copy Swift app to cache. Changes to hooks.json/config also need manual sync.
+- `hooks.json` must use nested object format: `{hooks: {EventName: [{matcher, hooks: [...]}]}}`. Flat array format silently fails to load.
+- CI on Linux needs `libasound2-dev` for rodio/alsa-sys.
+- Swift notifier requires ad-hoc code signing (`codesign --force --deep --sign -`) and lsregister to show custom icon. First launch needs notification permission grant in System Settings → Notifications.
+- `winrt-notification::Error` doesn't impl `Display` — use `format!("{e:?}")` on Windows.
