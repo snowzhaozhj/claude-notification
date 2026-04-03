@@ -1,0 +1,171 @@
+# claude-notification default configuration
+#
+# This file documents every available option and its default value.
+# Copy to ~/.claude/claude-notification/config.yaml to customise globally,
+# or to <project>/.claude-notification.yaml to customise per-project.
+#
+# Layer order (later layers override earlier ones):
+#   1. Rust compiled-in defaults
+#   2. This file (plugin built-in)
+#   3. ~/.claude/claude-notification/config.yaml  (user global)
+#   4. <project>/.claude-notification.yaml        (project local)
+
+# ─── Desktop (banner) notifications ──────────────────────────────────────────
+desktop:
+  # Send OS-level desktop notifications
+  enabled: true
+
+  # Clicking the notification focuses the terminal window
+  click_to_focus: true
+
+  # macOS bundle ID of the terminal app to focus.
+  # Leave empty to auto-detect (works for most setups).
+  # Examples: "com.apple.Terminal", "com.googlecode.iterm2"
+  terminal_bundle_id: ""
+
+  # Path to a custom .icns / .png to use as the notification icon.
+  # Leave empty to use the system default.
+  app_icon: ""
+
+  # How many seconds the notification banner stays on screen.
+  # 0 = stay until dismissed (macOS persistent).
+  timeout: 5
+
+# ─── Sound alerts ─────────────────────────────────────────────────────────────
+sound:
+  # Play an audio alert alongside the notification
+  enabled: true
+
+  # Playback volume — 0.0 (silent) to 1.0 (full)
+  volume: 0.8
+
+  # Audio output device name.  Leave empty to use the system default.
+  device: ""
+
+# ─── Terminal bell ────────────────────────────────────────────────────────────
+terminal_bell:
+  # Write the ASCII BEL character (\a) to the terminal on notification.
+  # Useful when desktop and sound are both disabled.
+  enabled: true
+
+# ─── Webhook notifications ────────────────────────────────────────────────────
+webhook:
+  # Send an HTTP POST to a webhook URL on notification
+  enabled: false
+
+  # Built-in payload preset.  Supported values: "slack", "discord", "teams", "generic"
+  preset: "slack"
+
+  # Webhook URL (required when enabled: true)
+  url: ""
+
+  # Slack channel / Discord thread ID (leave empty if unused)
+  chat_id: ""
+
+  # Extra HTTP headers added to every request, e.g.:
+  #   headers:
+  #     Authorization: "Bearer <token>"
+  #     X-Custom-Header: "value"
+  headers: {}
+
+  # Custom Handlebars template string for the request body.
+  # Leave empty to use the preset template.
+  template: ""
+
+  # How many times to retry a failed request before giving up
+  retry_max: 3
+
+  # HTTP request timeout in seconds
+  timeout_seconds: 10
+
+# ─── Activity / focus detection ───────────────────────────────────────────────
+activity:
+  # Detect whether the user is idle or focused before sending a notification
+  enabled: true
+
+  # Seconds of no input before the user is considered idle
+  idle_threshold_seconds: 30
+
+  # Suppress notifications when the Claude terminal window has focus.
+  # (The user is already looking at it, so a banner is redundant.)
+  suppress_when_focused: true
+
+# ─── Suppression / deduplication ─────────────────────────────────────────────
+suppression:
+  # Minimum seconds between identical notifications (same status + content)
+  cooldown_seconds: 7
+
+  # Cooldown when Claude transitions from a task event to a question event
+  task_to_question_cooldown: 12
+
+  # Suppress notifications whose body matches a recent one within this window
+  content_dedup_seconds: 180
+
+  # Optional suppression filter rules.
+  # A notification is silently dropped if ANY rule matches.
+  # Each rule may specify one or more of: status, git_branch, folder.
+  # All specified fields within a rule must match (AND logic).
+  #
+  # Example — suppress "task_complete" on the "wip" branch:
+  #   filters:
+  #     - status: task_complete
+  #       git_branch: wip
+  #
+  # Example — suppress everything in /tmp projects:
+  #   filters:
+  #     - folder: /tmp
+  filters: []
+
+# ─── Team / subagent behaviour ────────────────────────────────────────────────
+team:
+  # Notification mode for multi-agent / team sessions.
+  # Values: "always" | "on_error" | "never"
+  mode: "always"
+
+  # Raise a notification when a subagent completes a task
+  notify_on_subagent: false
+
+  # Suppress all notifications originating from a subagent context
+  suppress_for_subagents: true
+
+# ─── Debug logging ────────────────────────────────────────────────────────────
+debug:
+  # Enable verbose debug logging
+  enabled: false
+
+  # Write debug log to this file path.  Leave empty to use stderr only.
+  log_file: ""
+
+# ─── Priority overrides ───────────────────────────────────────────────────────
+# Change the priority for a specific status.
+# Keys are status names (snake_case); values are: low | normal | urgent
+#
+# Example:
+#   priority_overrides:
+#     api_error: urgent
+#     task_complete: low
+priority_overrides: {}
+
+# ─── Per-channel priority overrides ──────────────────────────────────────────
+# Enable or disable individual channels for a given status.
+# Structure: status_name -> channel_name -> bool
+#
+# Example — disable sound for "question" events:
+#   priority_channels:
+#     question:
+#       sound: false
+priority_channels: {}
+
+# ─── Per-status overrides ─────────────────────────────────────────────────────
+# Fine-grained overrides per status: custom title, sound file, or disable.
+# Keys are status names (snake_case).
+#
+# Example:
+#   status_overrides:
+#     api_error:
+#       enabled: true
+#       title: "Something went wrong"
+#       sound: "error.wav"
+#     task_complete:
+#       title: "All done!"
+status_overrides: {}

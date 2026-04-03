@@ -1,5 +1,6 @@
 // claude-notify-core: shared types and utilities
 
+pub mod config;
 pub mod error;
 pub mod types;
 
