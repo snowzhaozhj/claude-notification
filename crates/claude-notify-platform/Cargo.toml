@@ -7,8 +7,7 @@ edition = "2021"
 thiserror = { workspace = true }
 tracing   = { workspace = true }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-mac-notification-sys = "0.6"
+# macOS uses osascript — no native dependency needed
 
 [target.'cfg(target_os = "linux")'.dependencies]
 notify-rust = "4"

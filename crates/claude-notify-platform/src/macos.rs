@@ -5,7 +5,9 @@ use std::process::Command;
 
 // ── Notifier ─────────────────────────────────────────────────────────────────
 
-/// macOS desktop notifier backed by `mac-notification-sys`.
+/// macOS desktop notifier using `osascript` (AppleScript).
+/// More reliable than `mac-notification-sys` on modern macOS versions
+/// where NSUserNotification is deprecated.
 pub struct MacNotifier;
 
 impl DesktopNotifier for MacNotifier {
@@ -17,10 +19,31 @@ impl DesktopNotifier for MacNotifier {
         _icon: Option<&std::path::Path>,
         _timeout: Option<u64>,
     ) -> Result<(), String> {
-        mac_notification_sys::send_notification(title, subtitle, body, None)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        let mut script = format!(
+            "display notification \"{}\" with title \"{}\"",
+            escape_applescript(body),
+            escape_applescript(title),
+        );
+        if let Some(sub) = subtitle {
+            script.push_str(&format!(" subtitle \"{}\"", escape_applescript(sub)));
+        }
+
+        let output = Command::new("osascript")
+            .args(["-e", &script])
+            .output()
+            .map_err(|e| format!("failed to run osascript: {}", e))?;
+
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("osascript failed: {}", stderr.trim()))
+        }
     }
+}
+
+fn escape_applescript(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 // ── Activity Detector ─────────────────────────────────────────────────────────
@@ -33,7 +56,6 @@ pub struct MacActivityDetector;
 
 impl UserActivityDetector for MacActivityDetector {
     fn idle_seconds(&self) -> u64 {
-        // `ioreg` reports idle time in nanoseconds under `HIDIdleTime`.
         let output = Command::new("ioreg")
             .args(["-c", "IOHIDSystem", "-d", "4"])
             .output();
@@ -43,7 +65,6 @@ impl UserActivityDetector for MacActivityDetector {
                 let text = String::from_utf8_lossy(&out.stdout);
                 for line in text.lines() {
                     if line.contains("HIDIdleTime") {
-                        // Line looks like: "HIDIdleTime" = 12345678900
                         if let Some(eq_pos) = line.rfind('=') {
                             let value_str = line[eq_pos + 1..].trim();
                             if let Ok(nanos) = value_str.parse::<u64>() {
@@ -59,7 +80,6 @@ impl UserActivityDetector for MacActivityDetector {
     }
 
     fn is_terminal_focused(&self) -> bool {
-        // Ask macOS for the frontmost application's name via osascript.
         let output = Command::new("osascript")
             .args([
                 "-e",
@@ -72,7 +92,6 @@ impl UserActivityDetector for MacActivityDetector {
             Ok(out) if out.status.success() => {
                 let name = String::from_utf8_lossy(&out.stdout).to_lowercase();
                 let name = name.trim();
-                // Common terminal emulators on macOS.
                 matches!(
                     name,
                     "terminal"
