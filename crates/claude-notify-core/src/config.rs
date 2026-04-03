@@ -145,7 +145,7 @@ impl Default for ActivityConfig {
         Self {
             enabled: true,
             idle_threshold_seconds: 30,
-            suppress_when_focused: true,
+            suppress_when_focused: false,
         }
     }
 }
@@ -439,7 +439,7 @@ mod tests {
         // Activity
         assert!(cfg.activity.enabled);
         assert_eq!(cfg.activity.idle_threshold_seconds, 30);
-        assert!(cfg.activity.suppress_when_focused);
+        assert!(!cfg.activity.suppress_when_focused);
 
         // Suppression
         assert_eq!(cfg.suppression.cooldown_seconds, 7);

@@ -87,8 +87,10 @@ activity:
   idle_threshold_seconds: 30
 
   # Suppress notifications when the Claude terminal window has focus.
-  # (The user is already looking at it, so a banner is redundant.)
-  suppress_when_focused: true
+  # Default false: focus detection from a CLI subprocess is unreliable
+  # because the terminal is always "frontmost" when running hook commands.
+  # Enable only if you have a reliable external focus-detection setup.
+  suppress_when_focused: false
 
 # ─── Suppression / deduplication ─────────────────────────────────────────────
 suppression:
