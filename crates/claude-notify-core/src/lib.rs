@@ -6,7 +6,9 @@ pub mod dedup;
 pub mod error;
 pub mod hook;
 pub mod priority;
+pub mod state;
 pub mod summary;
+pub mod suppression;
 pub mod types;
 
 pub use error::{NotifyError, Result};
