@@ -2,8 +2,10 @@
 
 pub mod analyzer;
 pub mod config;
+pub mod dedup;
 pub mod error;
 pub mod hook;
+pub mod priority;
 pub mod summary;
 pub mod types;
 
