@@ -1,0 +1,4 @@
+/crates/target/
+/bin/claude-notify-*
+*.log
+.DS_Store

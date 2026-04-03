@@ -1,0 +1,10 @@
+{
+  "name": "claude-notification",
+  "description": "Smart notification plugin for Claude Code - intelligent timing, clear content, highly configurable, cross-platform",
+  "version": "0.1.0",
+  "author": { "name": "zhaohejie" },
+  "license": "MIT",
+  "keywords": ["notification", "desktop", "webhook", "sound", "cross-platform", "smart"],
+  "skills": ["./skills/settings/SKILL.md"],
+  "commands": ["./commands/notification-settings.md"]
+}
