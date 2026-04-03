@@ -70,7 +70,7 @@ pub fn create_activity_detector() -> Box<dyn UserActivityDetector> {
 pub fn create_desktop_notifier() -> Box<dyn DesktopNotifier> {
     #[cfg(target_os = "macos")]
     {
-        return Box::new(macos::MacNotifier);
+        return Box::new(macos::MacNotifier::new());
     }
 
     #[cfg(target_os = "linux")]
