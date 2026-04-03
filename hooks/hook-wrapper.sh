@@ -77,7 +77,7 @@ if [[ ! -x "$BINARY_PATH" ]]; then
   if [[ -z "$BINARY_PATH" || ! -x "$BINARY_PATH" ]]; then
     echo "[claude-notification] Attempting to download binary from GitHub Releases..." >&2
 
-    REPO="zhaohejie/claude-notification-plugin"
+    REPO="snowzhaozhj/claude-notification"
     # Read version from plugin.json if available
     PLUGIN_JSON="${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json"
     if [[ -f "$PLUGIN_JSON" ]] && command -v python3 &>/dev/null; then
