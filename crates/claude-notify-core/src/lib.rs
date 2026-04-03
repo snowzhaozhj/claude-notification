@@ -2,6 +2,7 @@
 
 pub mod config;
 pub mod error;
+pub mod hook;
 pub mod types;
 
 pub use error::{NotifyError, Result};
