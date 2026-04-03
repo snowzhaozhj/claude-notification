@@ -2,6 +2,7 @@
 
 pub mod analyzer;
 pub mod config;
+pub mod decision;
 pub mod dedup;
 pub mod error;
 pub mod hook;
