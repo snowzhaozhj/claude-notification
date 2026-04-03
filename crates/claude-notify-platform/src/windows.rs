@@ -21,7 +21,7 @@ impl DesktopNotifier for WindowsNotifier {
             .text1(body)
             .duration(Duration::Short)
             .show()
-            .map_err(|e| e.to_string())
+            .map_err(|e| format!("{e:?}"))
     }
 }
 
