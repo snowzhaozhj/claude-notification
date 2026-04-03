@@ -92,74 +92,16 @@ pub fn extract_error_info(messages: &[Message]) -> String {
     "An error occurred".to_string()
 }
 
-/// Extract a work summary: action counts (N writes, N reads, N bash) + last
-/// meaningful text from the last 5 messages.
+/// Extract a work summary from the last assistant text.
+/// Focuses on what Claude said, not tool call statistics.
 pub fn extract_work_summary(messages: &[Message]) -> String {
-    // Count actions across all messages
-    let mut writes = 0usize;
-    let mut reads = 0usize;
-    let mut bashes = 0usize;
-
-    const WRITE_TOOLS: &[&str] = &["Write", "Edit", "NotebookEdit"];
-    const READ_TOOLS: &[&str] = &["Read", "Grep", "Glob"];
-
-    for msg in messages {
-        match msg.tool_name.as_deref() {
-            Some(n) if WRITE_TOOLS.contains(&n) => writes += 1,
-            Some("Bash") => bashes += 1,
-            Some(n) if READ_TOOLS.contains(&n) => reads += 1,
-            _ => {}
-        }
-    }
-
-    // Build action counts string
-    let mut parts: Vec<String> = Vec::new();
-    if writes > 0 {
-        parts.push(format!(
-            "{} write{}",
-            writes,
-            if writes == 1 { "" } else { "s" }
-        ));
-    }
-    if reads > 0 {
-        parts.push(format!(
-            "{} read{}",
-            reads,
-            if reads == 1 { "" } else { "s" }
-        ));
-    }
-    if bashes > 0 {
-        parts.push(format!(
-            "{} bash{}",
-            bashes,
-            if bashes == 1 { "" } else { "es" }
-        ));
-    }
-
-    let counts = parts.join(", ");
-
-    // Last meaningful text from last 5 messages
-    let last5_start = if messages.len() > 5 {
-        messages.len() - 5
-    } else {
-        0
-    };
-    let last5 = &messages[last5_start..];
-
-    let last_text = last5
+    // Find the last meaningful assistant text
+    messages
         .iter()
         .rev()
         .find(|m| !m.text_content.is_empty() && m.tool_name.is_none())
         .map(|m| clean_and_truncate(&m.text_content))
-        .unwrap_or_default();
-
-    if counts.is_empty() {
-        last_text
-    } else if last_text.is_empty() {
-        counts
-    } else {
-        format!("{} — {}", counts, last_text)
-    }
+        .unwrap_or_default()
 }
 
 // ─── Text utilities ───────────────────────────────────────────────────────────
@@ -526,18 +468,24 @@ mod tests {
     // ── extract_work_summary tests ─────────────────────────────────────────────
 
     #[test]
-    fn extract_work_summary_with_action_counts() {
+    fn extract_work_summary_uses_last_text() {
         let messages = vec![
             make_msg(Some("Write"), json!(null), "", false, None),
             make_msg(Some("Write"), json!(null), "", false, None),
-            make_msg(Some("Read"), json!(null), "", false, None),
-            make_msg(Some("Bash"), json!(null), "", false, None),
-            make_msg(None, json!(null), "Done!", false, None),
+            make_msg(
+                None,
+                json!(null),
+                "All files updated successfully.",
+                false,
+                None,
+            ),
         ];
         let result = extract_work_summary(&messages);
-        assert!(result.contains("2 write"), "should count 2 writes");
-        assert!(result.contains("1 read"), "should count 1 read");
-        assert!(result.contains("1 bash"), "should count 1 bash");
+        assert!(
+            result.contains("All files updated"),
+            "should use last assistant text, got: {result}"
+        );
+        assert!(!result.contains("write"), "should not contain tool counts");
     }
 
     // ── extract_summary dispatch tests ────────────────────────────────────────
