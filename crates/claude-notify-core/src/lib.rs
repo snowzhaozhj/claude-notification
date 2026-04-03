@@ -4,6 +4,7 @@ pub mod analyzer;
 pub mod config;
 pub mod error;
 pub mod hook;
+pub mod summary;
 pub mod types;
 
 pub use error::{NotifyError, Result};
