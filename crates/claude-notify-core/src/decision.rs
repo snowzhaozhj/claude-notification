@@ -68,7 +68,11 @@ impl<'a> DecisionEngine<'a> {
         let user_is_idle = activity.idle_seconds() >= activity_cfg.idle_threshold_seconds;
         let bypasses_idle = self.priority_engine.bypasses_idle_check(&priority);
 
-        if activity_cfg.enabled && !bypasses_idle && activity.is_terminal_focused() && !user_is_idle
+        if activity_cfg.enabled
+            && activity_cfg.suppress_when_focused
+            && !bypasses_idle
+            && activity.is_terminal_focused()
+            && !user_is_idle
         {
             // Downgrade: user is actively watching the terminal
             let downgrade_channels = if self.config.terminal_bell.enabled {
@@ -165,7 +169,8 @@ mod tests {
     /// Low; channels must contain TerminalBell and must NOT contain Sound.
     #[test]
     fn downgrade_when_terminal_focused() {
-        let (config, priority_engine) = default_engine_pair();
+        let (mut config, priority_engine) = default_engine_pair();
+        config.activity.suppress_when_focused = true;
         let engine = DecisionEngine::new(&config, &priority_engine);
 
         let activity = MockActivity {
