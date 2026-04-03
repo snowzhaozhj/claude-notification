@@ -1,0 +1,17 @@
+[package]
+name    = "claude-notify-platform"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mac-notification-sys = "0.6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+notify-rust = "4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winrt-notification = "0.2"

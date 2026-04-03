@@ -1,0 +1,13 @@
+[package]
+name    = "claude-notify-dispatch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+claude-notify-platform = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
+ureq       = { workspace = true }
+rodio      = { workspace = true }
