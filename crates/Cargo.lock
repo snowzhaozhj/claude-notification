@@ -425,6 +425,7 @@ dependencies = [
  "claude-notify-core",
  "claude-notify-dispatch",
  "claude-notify-platform",
+ "serde_yaml",
  "tracing",
  "tracing-subscriber",
 ]
