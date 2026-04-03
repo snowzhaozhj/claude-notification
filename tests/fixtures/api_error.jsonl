@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Processing your request."}]},"session_id":"s3"}
+{"type":"assistant","isApiErrorMessage":true,"error":{"status":500,"message":"Internal Server Error"},"message":{"role":"assistant","content":[{"type":"text","text":"An API error occurred."}]},"session_id":"s3"}
