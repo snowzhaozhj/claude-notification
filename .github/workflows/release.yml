@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: claude-notify-darwin-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: claude-notify-darwin-aarch64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: claude-notify-linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: claude-notify-linux-aarch64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: claude-notify-windows-x86_64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      # Linux ARM64 cross-compilation deps
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libasound2-dev
+
+      # Linux x86_64 deps
+      - name: Install Linux deps (x86_64)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+
+      - name: Build
+        working-directory: crates
+        run: cargo build --release --target ${{ matrix.target }} -p claude-notify
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp crates/target/${{ matrix.target }}/release/claude-notify ${{ matrix.artifact }}
+          chmod +x ${{ matrix.artifact }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cp crates/target/${{ matrix.target }}/release/claude-notify.exe ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/claude-notify-darwin-x86_64/claude-notify-darwin-x86_64
+            artifacts/claude-notify-darwin-aarch64/claude-notify-darwin-aarch64
+            artifacts/claude-notify-linux-x86_64/claude-notify-linux-x86_64
+            artifacts/claude-notify-linux-aarch64/claude-notify-linux-aarch64
+            artifacts/claude-notify-windows-x86_64.exe/claude-notify-windows-x86_64.exe

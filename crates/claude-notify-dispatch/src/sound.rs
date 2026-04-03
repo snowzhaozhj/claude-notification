@@ -14,15 +14,15 @@ impl SoundDispatcher {
     fn map_title_to_sound(&self, title: &str) -> &'static str {
         let lower = title.to_lowercase();
         if lower.contains("error") || lower.contains("fail") {
-            "error.mp3"
+            "error.wav"
         } else if lower.contains("review") {
-            "review-complete.mp3"
+            "review-complete.wav"
         } else if lower.contains("question") || lower.contains('?') {
-            "question.mp3"
+            "question.wav"
         } else if lower.contains("plan") {
-            "plan-ready.mp3"
+            "plan-ready.wav"
         } else {
-            "task-complete.mp3"
+            "task-complete.wav"
         }
     }
 
