@@ -128,6 +128,24 @@ if [[ -z "$BINARY_PATH" || ! -x "$BINARY_PATH" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Build Swift notifier app on macOS (if not already built)
+# ---------------------------------------------------------------------------
+if [[ "$OS" == "macos" ]]; then
+  SWIFT_APP="${CLAUDE_PLUGIN_ROOT}/swift-notifier/ClaudeNotifier.app"
+  if [[ ! -d "$SWIFT_APP" ]] && command -v swiftc &>/dev/null; then
+    SWIFT_SRC="${CLAUDE_PLUGIN_ROOT}/swift-notifier"
+    if [[ -f "$SWIFT_SRC/ClaudeNotifier.swift" ]] && [[ -f "$SWIFT_SRC/build.sh" ]]; then
+      bash "$SWIFT_SRC/build.sh" >&2 2>/dev/null
+      # Move build output to expected location
+      if [[ -d "$SWIFT_SRC/build/ClaudeNotifier.app" ]]; then
+        mv "$SWIFT_SRC/build/ClaudeNotifier.app" "$SWIFT_APP"
+        rm -rf "$SWIFT_SRC/build"
+      fi
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Exec binary, forwarding all args and stdin
 # ---------------------------------------------------------------------------
 exec "$BINARY_PATH" "$@"
