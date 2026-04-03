@@ -1,0 +1,25 @@
+{
+  "name": "claude-notification",
+  "owner": {
+    "name": "snowzhaozhj"
+  },
+  "metadata": {
+    "description": "Smart notification plugin for Claude Code - intelligent timing, clear content, highly configurable, cross-platform",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-notification",
+      "source": "./",
+      "description": "Smart notification plugin for Claude Code - intelligent timing, clear content, highly configurable, cross-platform",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["notification", "desktop", "webhook", "sound", "cross-platform"],
+      "author": {
+        "name": "zhaohejie"
+      },
+      "repository": "https://github.com/snowzhaozhj/claude-notification",
+      "license": "MIT"
+    }
+  ]
+}
